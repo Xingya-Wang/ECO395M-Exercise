@@ -1,0 +1,50 @@
+---
+title: "HW2-3"
+output: github_document
+---
+library(tidyverse)
+
+online_news = read.csv('online_news.csv')
+
+# a simple linear probability model,see hoe variables work
+lm1 = lm(shares ~ .-url, data=online_news)
+summary(lm1)
+
+# to make an improvement, delete those not reallt significant/colinear variables
+lm2 = lm(shares~ . - url - n_tokens_content - self_reference_max_shares -
+           weekday_is_saturday - weekday_is_sunday - is_weekend -
+           max_positive_polarity - min_negative_polarity,
+         data=online_news)
+summary(lm2)
+
+# make a prediction of this new model
+online_news$lm2_pred = predict(lm2)
+
+# set a new loop to repeat the fitting part and also gain a confusion matrix
+N = nrow(online_news)
+loo_mse = foreach(i = 1:N, .combine='c') %do% {
+yhat_test = ifelse(online_news$lm2_pred > 1400, 1, 0)
+viral = ifelse(online_news$shares > 1400, 1, 0)
+confusion_matrix= table(viral, yhat=yhat_test)
+confusion_matrix}
+
+# now, we have a new object to predict, do a same simple linear regression
+# but since we only use the number where shares>1400, the regression should perform better
+lm3= lm(viral~.-url,data=online_news)
+summary(lm3)
+
+# get a new/better linear regression
+lm4= lm(viral~ . - url - num_videos - data_channel_is_bus-self_reference_max_shares 
+        -weekday_is_sunday - is_weekend -max_positive_polarity - min_negative_polarity,
+         data=online_news)
+summary(lm4)
+
+# prediction according to lm4
+online_news$lm4_pred = predict(lm4)
+
+# same, using loop to predict the out put
+N = nrow(online_news)
+loo_mse = foreach(i = 1:N, .combine='c') %do% {
+yhat_test2 = ifelse(online_news$lm4_pred>0.5,1,0)
+confusion_matrix2= table(viral, yhat2= yhat_test2)
+confusion_matrix2}

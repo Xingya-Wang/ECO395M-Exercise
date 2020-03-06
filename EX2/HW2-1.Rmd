@@ -1,0 +1,109 @@
+---
+output:
+  github_document: default
+  html_document: default
+---
+library(tidyverse)
+library(mosaic)
+library(foreach)
+library(doMC) 
+library(FNN)
+data(SaratogaHouses)
+summary(SaratogaHouses)
+# Here is the baseline model
+lm_medium = lm(price ~ lotSize + age + livingArea + pctCollege + bedrooms + 
+               fireplaces + bathrooms + rooms + heating + fuel + centralAir, data=SaratogaHouses)
+
+# Hand-build model by adding more variables
+lm_1=lm(price ~ lotSize + age + livingArea + pctCollege + bedrooms + 
+          fireplaces + bathrooms + rooms + heating + fuel + centralAir+ landValue+ newConstruction+ 
+          waterfront+ age* landValue + age* newConstruction
+          , data=SaratogaHouses)
+lm_2=lm(price~.,data = SaratogaHouses)
+
+# Also add a forward step model here, and I predict it should perform better than my hand build model 
+lm_step = step(lm_medium, 
+               scope=~(. + landValue+ sewer+ newConstruction+ waterfront)^2)
+
+getCall(lm_step)
+coef(lm_step)
+
+# Split the data into train and test sets
+n = nrow(SaratogaHouses)
+n_train = round(0.8*n) 
+n_test = n - n_train
+
+train_cases = sample.int(n, n_train, replace=FALSE)
+test_cases = setdiff(1:n, train_cases)
+saratoga_train = SaratogaHouses[train_cases,]
+saratoga_test = SaratogaHouses[test_cases,]
+
+# Fit to the training data
+lm1 = lm(lm_medium, data=saratoga_train)
+lm2 = lm(lm_1, data=saratoga_train)
+lm3 = lm(lm_2, data=saratoga_train)
+lm4 = lm(lm_step, data=saratoga_train)
+
+# Predictions out-of-sample
+yhat_test1 = predict(lm1, saratoga_test)
+yhat_test2 = predict(lm2, saratoga_test)
+yhat_test3 = predict(lm3, saratoga_test)
+yhat_test4 = predict(lm4, saratoga_test)
+
+# Function of calculating RMSE
+rmse = function(y, yhat) {
+  sqrt( mean( (y - yhat)^2 ) )
+}
+
+# Calculate RMSE in different models
+rmse(saratoga_test$price, yhat_test1)
+rmse(saratoga_test$price, yhat_test2)
+rmse(saratoga_test$price, yhat_test3)
+rmse(saratoga_test$price, yhat_test4)
+
+# Find the strong drivers of house prices on the base of step model
+# Only left one additional variable one time and see how RMSE change
+# To add the importance of the test variable, using square here
+lm_strong = lm(price ~ lotSize + age + livingArea + pctCollege + bedrooms + 
+                 fireplaces + bathrooms + rooms + heating + fuel + centralAir+ 
+                 (waterfront)^2, data=SaratogaHouses)
+
+# Compare RMSE with the medium model, since the test and train sets are random, I do not rerun the split code, 
+# and then hand-build and compare the RMSE while adding 4 different variables
+lm5 = lm(lm_strong, data=saratoga_train)
+yhat_test5 = predict(lm5, saratoga_test)
+rmse(saratoga_test$price, yhat_test5)
+
+# As a conclusion, sewer seems not important and others are more important
+# Then, I delete the not significant variables and then standarlize the variables
+
+X_set = model.matrix(~lotSize + age + livingArea + pctCollege + 
+                       bedrooms + fireplaces + bathrooms + rooms + heating + fuel +
+                       centralAir + landValue + waterfront -1,
+                     data=SaratogaHouses)
+head(X_set)
+
+scale_factors = apply(X_set, 2, sd)
+X_std = scale(X_set,scale = scale_factors)
+
+# Using KNN and also repeat the whole process to make sure get a better-performing KNN model
+k_grid = seq(3, 40, by=1)
+out_grid = foreach(i = 1:N, .combine='rbind') %dopar% {
+  #Split the sets using standard variables           
+  X_train = X_std[-i,]
+  X_test = X_std[i,]
+  y_train = SaratogaHouses$price[-i]
+  y_test = SaratogaHouses$price[i]
+  # Repeat calculate of k to get different models
+  k_mse = foreach(k = k_grid, .combine='c') %do% {
+  knn_i = knn.reg(X_train, X_test, y_train, k)
+  # Return predictions
+  (y_test - knn_i$pred)^2 
+}
+k_mse # Repeat results over k
+}
+# Get the RMSE value 
+knn_rmse = sqrt(colMeans(out_grid))
+# Plot K vs RMSE 
+plot(k_grid, knn_rmse)
+

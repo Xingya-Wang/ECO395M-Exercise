@@ -1,0 +1,35 @@
+---
+output:
+  github_document: default
+  html_document: default
+---
+#Q2#
+library(mosaic)
+brca = read.csv('../data/brca.csv')
+
+# (1)
+# Using linear regression to find how mich radiologists would like to recall holding risk factors same
+# Note: I do not contain cancer here because we should regard cancer as a actual outcome,
+# instead of a risk factor
+lm1=glm(recall~.-cancer, data=brca)
+summary(lm1)
+coef(lm1)
+# In the coef, "Intercept" actually reperesent radiologist13
+
+# (2)
+# Again, first we need to find the useful variables in predicting cancer
+lm2=glm(cancer~., data=brca)
+coef(lm2)
+
+# Age over 70 and density 4 seem contribute more than other variables
+#See if it works
+lm3=glm(cancer~recall, data=brca)
+coef(lm3)
+lm4=glm(cancer~recall+age+density, data=brca)
+coef(lm4)
+
+# See the current recall level of these two variables
+xtabs(~recall + age, data=brca)
+xtabs(~recall + density, data=brca)
+
+
