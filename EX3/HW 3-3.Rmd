@@ -1,0 +1,79 @@
+---
+output:
+  github_document: default
+  html_document: default
+---
+library(ggplot2)
+library(LICORS) 
+library(foreach)
+library(mosaic)
+library(cluster)
+
+wine = read.csv('data/wine.csv', header=TRUE)
+summary(wine)
+
+# We do a K-mean clustering here first
+# Center and scale the data
+X = wine[,(1:11)]
+X = scale(X, center=TRUE, scale=TRUE)
+
+# Extract the centers and scales from the rescaled data (which are named attributes)
+mu = attr(X,"scaled:center")
+sigma = attr(X,"scaled:scale")
+
+# Run k-means with 6 clusters and 25 starts
+clust1 = kmeans(X, 2, nstart=25)
+clust2 = kmeans(X, 9, nstart=25)
+clust1
+clust2
+
+# What are the clusters?
+clust1$center  # not super helpful
+clust1$center[1,]*sigma + mu
+clust1$center[2,]*sigma + mu
+
+# Which number of wines are in which clusters?
+which(clust1$cluster == 1)
+which(clust1$cluster == 2)
+
+# Under the clustering with K=2, there are some plots here 
+# They can really show how it works in seperating reds from whites
+qplot(sulphates, alcohol, data=wine, color=factor(clust1$cluster))
+qplot(sulphates, alcohol, data=wine, color=factor(clust1$cluster))+facet_wrap(~color)
+qplot(density, pH, data=wine, color=factor(clust1$cluster))
+qplot(density, pH, data=wine, color=factor(clust1$cluster))+facet_wrap(~color)
+
+# However, since when K=2, it could not translate the data well since (between_SS / total_SS =  21.4 %) 
+# Combine with K=9 now, and compare how they work in distinguishing the reds from the whites
+qplot(fixed.acidity, volatile.acidity, data=wine, color=factor(clust1$cluster))
+qplot(fixed.acidity, volatile.acidity, data=wine, color=factor(clust1$cluster))+facet_wrap(~color)
+qplot(fixed.acidity, volatile.acidity, data=wine, color=factor(clust2$cluster))+facet_wrap(~color)
+# There are so many plots like this and I will not list every one here
+
+---------------------
+# Then the PCA method
+pca_wine = prcomp(wine[,-(12:13)], scale=TRUE)
+summary(pca_wine)
+
+# See how PCA1 and PCA2 distributed
+plot(pca_wine$x[,1:2]) 
+
+# Not really easy to understand, see how it help in distingguishing reds from whites
+pca_result=as.data.frame(pca_wine$x[,1:2])
+group=factor(wine$color)
+group2=data.frame(group)
+pca_result2=cbind(pca_result,group2)
+ggplot(pca_result2)+
+  geom_point(aes(x=pca_result2[,1],y=pca_result[,2],color=pca_result2$group),size=0.1)+
+  theme(legend.title = element_blank())+labs(x="PCA1",y="PCA2")
+
+# Great! And it seems better than K-mean models since it contains more original points.
+# Then see how it works on qualities.
+pca_result=as.data.frame(pca_wine$x[,1:2])
+group=factor(wine$quality>5.818)
+group2=data.frame(group)
+pca_result2=cbind(pca_result,group2)
+ggplot(pca_result2)+
+  geom_point(aes(x=pca_result2[,1],y=pca_result[,2],color=pca_result2$group),size=0.1)+
+  theme(legend.title = element_blank())+labs(x="PCA1",y="PCA2")
+

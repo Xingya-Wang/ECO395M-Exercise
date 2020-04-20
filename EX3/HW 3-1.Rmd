@@ -1,0 +1,46 @@
+---
+output:
+  github_document: default
+  html_document: default
+---
+
+library(tidyverse)
+library(mosaic)
+summary(greenbuildings)
+
+lm1=lm(Rent~.-LEED-Energystar,data=greenbuildings)
+plot(Rent~.,data=greenbuildings)
+lm_step = step(lm1,scope=~(.-LEED-Energystar)^2)
+getCall(lm_step)
+
+lm_best=lm(Rent ~ CS_PropertyID + cluster + size + empl_gr + 
+             leasing_rate + stories + age + renovated + class_a + class_b + 
+             green_rating + net + amenities + cd_total_07 + hd_total07 + 
+             Precipitation + Gas_Costs + Electricity_Costs + cluster_rent + 
+             size:cluster_rent + cluster:size + cluster:cluster_rent + 
+             stories:cluster_rent + size:leasing_rate + net:cd_total_07 + 
+             green_rating:amenities + age:class_b + age:class_a + leasing_rate:cluster_rent + 
+             class_b:Gas_Costs + amenities:Gas_Costs + amenities:Precipitation + 
+             stories:amenities + renovated:Precipitation + size:cd_total_07 + 
+             CS_PropertyID:size + class_a:amenities + CS_PropertyID:amenities + 
+             cluster:leasing_rate + renovated:Electricity_Costs + renovated:Gas_Costs + 
+             renovated:hd_total07 + renovated:cd_total_07 + hd_total07:Electricity_Costs + 
+             age:cluster_rent + amenities:cluster_rent + stories:renovated + 
+             size:renovated + amenities:hd_total07 + age:Electricity_Costs + 
+             cluster:Electricity_Costs + cluster:hd_total07 + cluster:stories + 
+             age:cd_total_07 + Electricity_Costs:cluster_rent + cluster:age + 
+             cd_total_07:Electricity_Costs + CS_PropertyID:class_b + CS_PropertyID:class_a + 
+             CS_PropertyID:age + CS_PropertyID:Electricity_Costs + CS_PropertyID:hd_total07 + 
+             CS_PropertyID:empl_gr + renovated:cluster_rent + empl_gr:Gas_Costs + 
+             CS_PropertyID:cluster + stories:age + size:age + size:class_a + 
+             stories:cd_total_07 + age:green_rating + cd_total_07:Precipitation + 
+             Precipitation:Gas_Costs + class_b:Electricity_Costs + class_a:Electricity_Costs + 
+             class_b:Precipitation + class_a:Precipitation + class_a:Gas_Costs + 
+             empl_gr:class_b + empl_gr:class_a + size:Electricity_Costs + 
+             age:renovated + size:Gas_Costs + CS_PropertyID:Gas_Costs + 
+             net:cluster_rent, data = greenbuildings)
+
+coef(lm1)
+coef(lm_best)
+summary(lm1)
+summary(lm_best)
